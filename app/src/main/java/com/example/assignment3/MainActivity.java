@@ -1,18 +1,22 @@
 package com.example.assignment3;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
+import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-
 
 public class MainActivity extends AppCompatActivity {
     TextView textViewDownloadPercent;
@@ -21,6 +25,7 @@ public class MainActivity extends AppCompatActivity {
     DownloadService downloadService;
     boolean bound = false;
 
+    final static int PERMISSIONS_REQUEST_CODE = 100;
     final static int UPDATE_TEXT_VIEW = 0;
     final static int UPDATE_BUTTON = 1;
     final static String BUTTON_ENABLE = "ENABLE";
@@ -32,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
 
         textViewDownloadPercent = findViewById(R.id.textViewDownloadPercent);
         buttonDownload = findViewById(R.id.buttonDownload);
+        checkPermissions();
     }
 
     @Override
@@ -40,6 +46,48 @@ public class MainActivity extends AppCompatActivity {
 
         if (bound) {
             unbindService(connection);
+        }
+    }
+
+    void checkPermissions() {
+        String[] requiredPermissions = new String[]{
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+        };
+        boolean hasAllPermissions = true;
+        for (String per : requiredPermissions) {
+            if (ContextCompat.checkSelfPermission(this, per) == PackageManager.PERMISSION_DENIED) {
+                hasAllPermissions = false;
+                break;
+            }
+        }
+        Log.v(Utils.logTag, "hasPermissions "+hasAllPermissions);
+        if (!hasAllPermissions) {
+            ActivityCompat.requestPermissions(this, requiredPermissions, PERMISSIONS_REQUEST_CODE);
+        } else {
+            buttonDownload.setEnabled(true);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == PERMISSIONS_REQUEST_CODE) {
+            boolean grantedAllPermissions = true;
+            for(int per : grantResults) {
+                if (per != PackageManager.PERMISSION_GRANTED) {
+                    grantedAllPermissions = false;
+                    break;
+                }
+            }
+            Log.v(Utils.logTag, "grantedPermissions "+grantedAllPermissions);
+            if (grantedAllPermissions) {
+                buttonDownload.setEnabled(true);
+            } else {
+                buttonDownload.setEnabled(false);
+                textViewDownloadPercent.setText(Utils.TextViewStrings.PROVIDE_STORAGE_ACCESS);
+            }
         }
     }
 
@@ -65,9 +113,7 @@ public class MainActivity extends AppCompatActivity {
     public void onClickDownloadButton(View v) {
         Intent intent = new Intent(this, DownloadService.class);
         bindService(intent, connection, Context.BIND_AUTO_CREATE);
-
         textViewDownloadPercent.setText(Utils.TextViewStrings.REQUESTED);
-//        Log.v(Utils.logTag, "main activity"+Thread.currentThread().getId());
     }
 
     void updateOnUIThread(final int updateIndex, final String text) {
@@ -89,7 +135,7 @@ public class MainActivity extends AppCompatActivity {
     void updateTextBasedOnStatus(int status) {
         switch (status) {
             case Utils.DownloadStatuses.COMPLETED:
-                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.COMPLETED);
+                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.COMPLETED+Utils.downloadDirectoryPath);
                 break;
             case Utils.DownloadStatuses.CONNECTION_FAILED:
                 updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.CONNECTION_FAILED);
@@ -114,23 +160,17 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 super.run();
-//                Log.v(Utils.logTag, "getProgress "+Thread.currentThread().getId());
                 try {
                     int downloadStatus;
                     while ((downloadStatus = downloadService.getDownloadStatus()) <= 0) {
                         if (downloadStatus == Utils.DownloadStatuses.ONGOING) {
                             int progressPercent = downloadService.getProgressPercent();
-                            Log.v(Utils.logTag, "progress percent "+progressPercent);
-                            if (bound) {
-                                updateOnUIThread(
-                                        UPDATE_TEXT_VIEW,
-                                        String.format("Progress: %s/100", progressPercent)
-                                );
-                            }
+                            updateOnUIThread(
+                                    UPDATE_TEXT_VIEW,
+                                    String.format("Progress: %s/100", progressPercent)
+                            );
                         } else if (downloadStatus == Utils.DownloadStatuses.PENDING) {
-                            if (bound) {
-                                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.PENDING);
-                            }
+                            updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.PENDING);
                         }
                         Thread.sleep(Utils.sleepTime);
                     }

@@ -8,16 +8,19 @@
 
     <TextView
         android:id="@+id/textViewDownloadPercent"
+        style="@style/WrapContents"
+        android:textAlignment="center"
+        android:textAllCaps="false"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/guideline"
-        style="@style/WrapContents"/>
+        app:layout_constraintBottom_toBottomOf="@+id/guideline" />
 
     <Button
         android:id="@+id/buttonDownload"
         android:text="@string/download"
         android:onClick="onClickDownloadButton"
+        android:enabled="false"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"

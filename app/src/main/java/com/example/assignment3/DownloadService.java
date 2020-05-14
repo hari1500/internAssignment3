@@ -56,7 +56,6 @@ public class DownloadService extends Service {
                 connection.connect();
 
                 if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                    Log.v(Utils.logTag, "Connection Failed");
                     downloadStatus = Utils.DownloadStatuses.CONNECTION_FAILED;
                     return null;
                 }
@@ -67,7 +66,6 @@ public class DownloadService extends Service {
                             Utils.downloadDirectoryPath
                     );
                 } else {
-                    Log.v(Utils.logTag, "SD card not present");
                     downloadStatus = Utils.DownloadStatuses.SD_CARD_NOT_EXISTS;
                     return null;
                 }
@@ -76,13 +74,8 @@ public class DownloadService extends Service {
                     boolean directoryCreated = outputDirectory.mkdir();
                     if (!directoryCreated) {
                         downloadStatus = Utils.DownloadStatuses.OUTPUT_DIR_CREATION_FAILED;
-                        Log.v(Utils.logTag, "Output Directory creation failed");
                         return null;
-                    } else {
-                        Log.v(Utils.logTag, "Output Directory created");
                     }
-                } else {
-                    Log.v(Utils.logTag, "Output Directory exists");
                 }
 
                 String outputFileName = Utils.sourceUrl.substring(Utils.sourceUrl.lastIndexOf('/')+1);
@@ -90,14 +83,9 @@ public class DownloadService extends Service {
                 if (!outputFile.exists()) {
                     boolean fileCreated = outputFile.createNewFile();
                     if (!fileCreated) {
-                        Log.v(Utils.logTag, "Output File creation failed");
                         downloadStatus = Utils.DownloadStatuses.OUTPUT_FILE_CREATION_FAILED;
                         return null;
-                    } else {
-                        Log.v(Utils.logTag, outputFile.getAbsolutePath());
                     }
-                } else {
-                    Log.v(Utils.logTag, "Output File exists");
                 }
 
                 downloadStatus = Utils.DownloadStatuses.ONGOING;
@@ -116,7 +104,7 @@ public class DownloadService extends Service {
                 connection.disconnect();
                 downloadStatus = Utils.DownloadStatuses.COMPLETED;
 
-                Log.v(Utils.logTag, "Download Completed");
+                Log.v(Utils.logTag, "doInBackground Download Completed");
             } catch (IOException e) {
                 e.printStackTrace();
                 outputFile = null;
