@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private ServiceConnection connection = new ServiceConnection() {
+    ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName className, IBinder service) {
             DownloadService.LocalBinder binder = (DownloadService.LocalBinder) service;
@@ -66,11 +66,11 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, DownloadService.class);
         bindService(intent, connection, Context.BIND_AUTO_CREATE);
 
-        textViewDownloadPercent.setText(R.string.processing);
+        textViewDownloadPercent.setText(Utils.TextViewStrings.REQUESTED);
 //        Log.v(Utils.logTag, "main activity"+Thread.currentThread().getId());
     }
 
-    private void updateOnUIThread(final int updateIndex, final String text) {
+    void updateOnUIThread(final int updateIndex, final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -86,24 +86,53 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void getProgress() {
+    void updateTextBasedOnStatus(int status) {
+        switch (status) {
+            case Utils.DownloadStatuses.COMPLETED:
+                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.COMPLETED);
+                break;
+            case Utils.DownloadStatuses.CONNECTION_FAILED:
+                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.CONNECTION_FAILED);
+                break;
+            case Utils.DownloadStatuses.SD_CARD_NOT_EXISTS:
+                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.SD_CARD_NOT_EXISTS);
+                break;
+            case Utils.DownloadStatuses.OUTPUT_DIR_CREATION_FAILED:
+                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.OUTPUT_DIR_CREATION_FAILED);
+                break;
+            case Utils.DownloadStatuses.OUTPUT_FILE_CREATION_FAILED:
+                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.OUTPUT_FILE_CREATION_FAILED);
+                break;
+            case Utils.DownloadStatuses.FAILED:
+                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.FAILED);
+                break;
+        }
+    }
+
+    void getProgress() {
         Thread thread = new Thread(){
             @Override
             public void run() {
                 super.run();
 //                Log.v(Utils.logTag, "getProgress "+Thread.currentThread().getId());
                 try {
-                    while (!downloadService.isTaskCompleted()) {
-                        Thread.sleep(Utils.sleepTime);
-
-                        int progressPercent = downloadService.getProgressPercent();
-                        Log.v(Utils.logTag, ""+progressPercent);
-                        if (bound) {
-                            updateOnUIThread(
-                                    UPDATE_TEXT_VIEW,
-                                    String.format("Progress: %s/100", progressPercent)
-                            );
+                    int downloadStatus;
+                    while ((downloadStatus = downloadService.getDownloadStatus()) <= 0) {
+                        if (downloadStatus == Utils.DownloadStatuses.ONGOING) {
+                            int progressPercent = downloadService.getProgressPercent();
+                            Log.v(Utils.logTag, "progress percent "+progressPercent);
+                            if (bound) {
+                                updateOnUIThread(
+                                        UPDATE_TEXT_VIEW,
+                                        String.format("Progress: %s/100", progressPercent)
+                                );
+                            }
+                        } else if (downloadStatus == Utils.DownloadStatuses.PENDING) {
+                            if (bound) {
+                                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.PENDING);
+                            }
                         }
+                        Thread.sleep(Utils.sleepTime);
                     }
 
                     if (bound) {
@@ -111,7 +140,8 @@ public class MainActivity extends AppCompatActivity {
                         bound = false;
                         updateOnUIThread(UPDATE_BUTTON, BUTTON_ENABLE);
                     }
-                    updateOnUIThread(UPDATE_TEXT_VIEW, Utils.downloadComplete);
+
+                    updateTextBasedOnStatus(downloadService.getDownloadStatus());
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
