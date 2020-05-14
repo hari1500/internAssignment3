@@ -16,7 +16,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class DownloadService extends Service {
-    private final IBinder binder = new LocalBinder();
+    final IBinder binder = new LocalBinder();
     DownloadTask downloadTask = new DownloadTask();
 
     class LocalBinder extends Binder {
@@ -27,7 +27,6 @@ public class DownloadService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-//        Log.v(Utils.logTag, "onBind "+Thread.currentThread().getId());
         return binder;
     }
 
@@ -50,7 +49,6 @@ public class DownloadService extends Service {
 
         @Override
         protected Void doInBackground(Void... voids) {
-//            Log.v(Utils.logTag, "doInBackground "+Thread.currentThread().getId());
             try {
                 URL url = new URL(Utils.sourceUrl);
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -63,7 +61,6 @@ public class DownloadService extends Service {
                 }
 
                 if (isSDCardPresent()) {
-                    Log.v(Utils.logTag, "SD card exists!");
                     outputDirectory = new File(
                             Environment.getExternalStorageDirectory().getAbsolutePath(),
                             Utils.downloadDirectoryPath
@@ -74,7 +71,6 @@ public class DownloadService extends Service {
                 }
 
                 if (!outputDirectory.exists()) {
-                    Log.v(Utils.logTag, outputDirectory.getAbsolutePath());
                     boolean directoryCreated = outputDirectory.mkdir();
                     if (!directoryCreated) {
                         Log.v(Utils.logTag, "Output Directory creation failed");
@@ -86,9 +82,9 @@ public class DownloadService extends Service {
                     Log.v(Utils.logTag, "Output Directory exists");
                 }
 
-                outputFile = new File(outputDirectory, Utils.downloadFileName);
+                String outputFileName = Utils.sourceUrl.substring(Utils.sourceUrl.lastIndexOf('/')+1);
+                outputFile = new File(outputDirectory, outputFileName);
                 if (!outputFile.exists()) {
-                    Log.v(Utils.logTag, "Output File doesn't exist");
                     boolean fileCreated = outputFile.createNewFile();
                     if (!fileCreated) {
                         Log.v(Utils.logTag, "Output File creation failed");
@@ -105,9 +101,7 @@ public class DownloadService extends Service {
                 byte[] buffer = new byte[1024];
                 int nBytesRead, nBytesCumm = 0, fileSize = connection.getContentLength();
                 while ((nBytesRead = inputStream.read(buffer)) != -1) {
-//                    Log.v(Utils.logTag, ""+progressPercent);
                     fileOutputStream.write(buffer, 0, nBytesRead);
-
                     nBytesCumm += nBytesRead;
                     progressPercent = ((nBytesCumm * 100) / fileSize);
                 }

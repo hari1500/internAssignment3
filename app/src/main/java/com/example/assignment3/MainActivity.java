@@ -15,13 +15,15 @@ import android.widget.TextView;
 
 
 public class MainActivity extends AppCompatActivity {
-    private TextView textViewDownloadPercent;
-    private Button buttonDownload;
-    private DownloadService downloadService;
+    TextView textViewDownloadPercent;
+    Button buttonDownload;
+
+    DownloadService downloadService;
     boolean bound = false;
-    private final static int UPDATE_TEXT_VIEW = 0;
-    private final static int UPDATE_BUTTON = 1;
-    private final static String BUTTON_ENABLE = "ENABLE";
+
+    final static int UPDATE_TEXT_VIEW = 0;
+    final static int UPDATE_BUTTON = 1;
+    final static String BUTTON_ENABLE = "ENABLE";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
