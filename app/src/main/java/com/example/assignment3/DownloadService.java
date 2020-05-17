@@ -1,12 +1,14 @@
 package com.example.assignment3;
 
-import android.app.Service;
+import android.app.Activity;
 import android.content.Intent;
-import android.os.AsyncTask;
-import android.os.Binder;
+import android.os.Bundle;
 import android.os.Environment;
-import android.os.IBinder;
+import android.os.ResultReceiver;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.JobIntentService;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -15,115 +17,104 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-public class DownloadService extends Service {
-    final IBinder binder = new LocalBinder();
-    DownloadTask downloadTask = new DownloadTask();
 
-    class LocalBinder extends Binder {
-        DownloadService getService() {
-            return DownloadService.this;
+public class DownloadService extends JobIntentService {
+    @Override
+    protected void onHandleWork(@NonNull Intent intent) {
+        File outputFile;
+        ResultReceiver resultReceiver = intent.getParcelableExtra(Utils.IntentAndBundleKeys.resultReceiverKey);
+        Bundle bundle = new Bundle();
+        bundle.putInt(Utils.IntentAndBundleKeys.downloadStatusKey, Utils.DownloadStatuses.PENDING);
+        bundle.putInt(Utils.IntentAndBundleKeys.progressPercentKey, 0);
+        assert resultReceiver != null;
+
+        String sourceUrl = intent.getStringExtra(Utils.IntentAndBundleKeys.sourceUrlKey);
+        if (sourceUrl == null) {
+            bundle.putInt(Utils.IntentAndBundleKeys.downloadStatusKey, Utils.DownloadStatuses.IMPROPER_URL);
+            resultReceiver.send(Activity.RESULT_OK, bundle);
+            return;
+        }
+
+        try {
+            URL url = new URL(sourceUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.connect();
+
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                bundle.putInt(Utils.IntentAndBundleKeys.downloadStatusKey, Utils.DownloadStatuses.CONNECTION_FAILED);
+                resultReceiver.send(Activity.RESULT_OK, bundle);
+                return;
+            }
+
+            // Checks for existence of SD card
+            File outputDirectory;
+            if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+                outputDirectory = new File(
+                        Environment.getExternalStorageDirectory().getAbsolutePath(),
+                        Utils.downloadDirectoryPath
+                );
+            } else {
+                bundle.putInt(Utils.IntentAndBundleKeys.downloadStatusKey, Utils.DownloadStatuses.SD_CARD_NOT_EXISTS);
+                resultReceiver.send(Activity.RESULT_OK, bundle);
+                return;
+            }
+
+            if (!outputDirectory.exists()) {
+                boolean directoryCreated = outputDirectory.mkdir();
+                if (!directoryCreated) {
+                    bundle.putInt(Utils.IntentAndBundleKeys.downloadStatusKey, Utils.DownloadStatuses.OUTPUT_DIR_CREATION_FAILED);
+                    resultReceiver.send(Activity.RESULT_OK, bundle);
+                    return;
+                }
+            }
+
+            String outputFileName = Utils.sourceUrl.substring(Utils.sourceUrl.lastIndexOf('/')+1);
+            outputFile = new File(outputDirectory, outputFileName);
+            if (!outputFile.exists()) {
+                boolean fileCreated = outputFile.createNewFile();
+                if (!fileCreated) {
+                    bundle.putInt(Utils.IntentAndBundleKeys.downloadStatusKey, Utils.DownloadStatuses.OUTPUT_FILE_CREATION_FAILED);
+                    resultReceiver.send(Activity.RESULT_OK, bundle);
+                    return;
+                }
+            }
+
+            bundle.putInt(Utils.IntentAndBundleKeys.downloadStatusKey, Utils.DownloadStatuses.ONGOING);
+            resultReceiver.send(Activity.RESULT_OK, bundle);
+
+            FileOutputStream fileOutputStream = new FileOutputStream(outputFile);
+            InputStream inputStream = connection.getInputStream();
+            byte[] buffer = new byte[1024];
+            int nBytesRead, nBytesCumm = 0, fileSize = connection.getContentLength();
+            while ((nBytesRead = inputStream.read(buffer)) != -1) {
+                fileOutputStream.write(buffer, 0, nBytesRead);
+                nBytesCumm += nBytesRead;
+
+                int progressPercent = ((nBytesCumm * 100) / fileSize);
+                bundle.putInt(Utils.IntentAndBundleKeys.progressPercentKey, progressPercent);
+                resultReceiver.send(Activity.RESULT_OK, bundle);
+                Log.v(Utils.logTag, ""+progressPercent);
+            }
+
+            fileOutputStream.close();
+            inputStream.close();
+            connection.disconnect();
+
+            bundle.putInt(Utils.IntentAndBundleKeys.downloadStatusKey, Utils.DownloadStatuses.COMPLETED);
+            resultReceiver.send(Activity.RESULT_OK, bundle);
+        } catch (IOException e) {
+            e.printStackTrace();
+            Log.v(Utils.logTag, e.toString());
+
+            bundle.putInt(Utils.IntentAndBundleKeys.downloadStatusKey, Utils.DownloadStatuses.FAILED);
+            resultReceiver.send(Activity.RESULT_OK, bundle);
         }
     }
 
     @Override
-    public IBinder onBind(Intent intent) {
-        return binder;
-    }
-
-    public int getProgressPercent() {
-        return downloadTask.getProgressPercent();
-    }
-
-    public int getDownloadStatus() {
-        return downloadTask.getDownloadStatus();
-    }
-
-    public void downloadFile() {
-        downloadTask.execute();
-    }
-
-    private static class DownloadTask extends AsyncTask<Void, Void, Void> {
-        File outputDirectory = null, outputFile = null;
-        int progressPercent = 0;
-        int downloadStatus = Utils.DownloadStatuses.PENDING;
-
-        @Override
-        protected Void doInBackground(Void... voids) {
-            try {
-                URL url = new URL(Utils.sourceUrl);
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("GET");
-                connection.connect();
-
-                if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                    downloadStatus = Utils.DownloadStatuses.CONNECTION_FAILED;
-                    return null;
-                }
-
-                if (isSDCardPresent()) {
-                    outputDirectory = new File(
-                            Environment.getExternalStorageDirectory().getAbsolutePath(),
-                            Utils.downloadDirectoryPath
-                    );
-                } else {
-                    downloadStatus = Utils.DownloadStatuses.SD_CARD_NOT_EXISTS;
-                    return null;
-                }
-
-                if (!outputDirectory.exists()) {
-                    boolean directoryCreated = outputDirectory.mkdir();
-                    if (!directoryCreated) {
-                        downloadStatus = Utils.DownloadStatuses.OUTPUT_DIR_CREATION_FAILED;
-                        return null;
-                    }
-                }
-
-                String outputFileName = Utils.sourceUrl.substring(Utils.sourceUrl.lastIndexOf('/')+1);
-                outputFile = new File(outputDirectory, outputFileName);
-                if (!outputFile.exists()) {
-                    boolean fileCreated = outputFile.createNewFile();
-                    if (!fileCreated) {
-                        downloadStatus = Utils.DownloadStatuses.OUTPUT_FILE_CREATION_FAILED;
-                        return null;
-                    }
-                }
-
-                downloadStatus = Utils.DownloadStatuses.ONGOING;
-                FileOutputStream fileOutputStream = new FileOutputStream(outputFile);
-                InputStream inputStream = connection.getInputStream();
-                byte[] buffer = new byte[1024];
-                int nBytesRead, nBytesCumm = 0, fileSize = connection.getContentLength();
-                while ((nBytesRead = inputStream.read(buffer)) != -1) {
-                    fileOutputStream.write(buffer, 0, nBytesRead);
-                    nBytesCumm += nBytesRead;
-                    progressPercent = ((nBytesCumm * 100) / fileSize);
-                }
-
-                fileOutputStream.close();
-                inputStream.close();
-                connection.disconnect();
-                downloadStatus = Utils.DownloadStatuses.COMPLETED;
-
-                Log.v(Utils.logTag, "doInBackground Download Completed");
-            } catch (IOException e) {
-                e.printStackTrace();
-                outputFile = null;
-                Log.v(Utils.logTag, e.toString());
-                downloadStatus = Utils.DownloadStatuses.FAILED;
-            }
-            return null;
-        }
-
-        private boolean isSDCardPresent() {
-            return Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED);
-        }
-
-        int getProgressPercent() {
-            return progressPercent;
-        }
-
-        int getDownloadStatus() {
-            return downloadStatus;
-        }
+    public void onDestroy() {
+        super.onDestroy();
+        Log.v(Utils.logTag, "Destroying DownloadService");
     }
 }

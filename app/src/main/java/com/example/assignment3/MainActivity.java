@@ -6,29 +6,22 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
-import android.content.ComponentName;
-import android.content.Context;
+import android.app.Activity;
 import android.content.Intent;
-import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.IBinder;
+import android.os.Handler;
+import android.os.ResultReceiver;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
-    TextView textViewDownloadPercent;
-    Button buttonDownload;
-
-    DownloadService downloadService;
-    boolean bound = false;
-
-    final static int PERMISSIONS_REQUEST_CODE = 100;
-    final static int UPDATE_TEXT_VIEW = 0;
-    final static int UPDATE_BUTTON = 1;
-    final static String BUTTON_ENABLE = "ENABLE";
+    private static final int DOWNLOAD_JOB_ID = 5080;
+    private static final int PERMISSIONS_REQUEST_CODE = 100;
+    private TextView textViewDownloadPercent;
+    private Button buttonDownload;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,12 +34,65 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         super.onDestroy();
+        Log.v(Utils.logTag, "Destroying MainActivity");
+    }
 
-        if (bound) {
-            unbindService(connection);
+    public void onClickDownloadButton(View v) {
+        textViewDownloadPercent.setText(Utils.TextViewStrings.REQUESTED);
+        buttonDownload.setEnabled(false);
+
+        Intent intent = new Intent();
+        intent.putExtra(Utils.IntentAndBundleKeys.sourceUrlKey, Utils.sourceUrl);
+        intent.putExtra(Utils.IntentAndBundleKeys.resultReceiverKey, new ResultReceiver(new Handler()) {
+            @Override
+            protected void onReceiveResult(int resultCode, Bundle resultData) {
+                super.onReceiveResult(resultCode, resultData);
+
+                if (resultCode == Activity.RESULT_OK) {
+                    updateUI(
+                            resultData.getInt(Utils.IntentAndBundleKeys.downloadStatusKey),
+                            resultData.getInt(Utils.IntentAndBundleKeys.progressPercentKey, 0)
+                    );
+                }
+            }
+        });
+        DownloadService.enqueueWork(getApplicationContext(), DownloadService.class, DOWNLOAD_JOB_ID, intent);
+    }
+
+    private void updateUI(int status, int percent) {
+        switch (status) {
+            case Utils.DownloadStatuses.PENDING:
+                textViewDownloadPercent.setText(Utils.TextViewStrings.PENDING);
+                break;
+            case Utils.DownloadStatuses.ONGOING:
+                textViewDownloadPercent.setText(String.format("Progress: %s/100", percent));
+                break;
+            case Utils.DownloadStatuses.COMPLETED:
+                textViewDownloadPercent.setText(Utils.TextViewStrings.COMPLETED.concat(Utils.downloadDirectoryPath));
+                break;
+            case Utils.DownloadStatuses.CONNECTION_FAILED:
+                textViewDownloadPercent.setText(Utils.TextViewStrings.CONNECTION_FAILED);
+                break;
+            case Utils.DownloadStatuses.SD_CARD_NOT_EXISTS:
+                textViewDownloadPercent.setText(Utils.TextViewStrings.SD_CARD_NOT_EXISTS);
+                break;
+            case Utils.DownloadStatuses.OUTPUT_DIR_CREATION_FAILED:
+                textViewDownloadPercent.setText(Utils.TextViewStrings.OUTPUT_DIR_CREATION_FAILED);
+                break;
+            case Utils.DownloadStatuses.OUTPUT_FILE_CREATION_FAILED:
+                textViewDownloadPercent.setText(Utils.TextViewStrings.OUTPUT_FILE_CREATION_FAILED);
+                break;
+            case Utils.DownloadStatuses.IMPROPER_URL:
+                textViewDownloadPercent.setText(Utils.TextViewStrings.IMPROPER_URL);
+                break;
+            case Utils.DownloadStatuses.FAILED:
+                textViewDownloadPercent.setText(Utils.TextViewStrings.FAILED);
+                break;
         }
+
+        buttonDownload.setEnabled(status >= Utils.DownloadStatuses.COMPLETED);
     }
 
     void checkPermissions() {
@@ -61,7 +107,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
             }
         }
-        Log.v(Utils.logTag, "hasPermissions "+hasAllPermissions);
+
         if (!hasAllPermissions) {
             ActivityCompat.requestPermissions(this, requiredPermissions, PERMISSIONS_REQUEST_CODE);
         } else {
@@ -81,7 +127,6 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 }
             }
-            Log.v(Utils.logTag, "grantedPermissions "+grantedAllPermissions);
             if (grantedAllPermissions) {
                 buttonDownload.setEnabled(true);
             } else {
@@ -89,104 +134,5 @@ public class MainActivity extends AppCompatActivity {
                 textViewDownloadPercent.setText(Utils.TextViewStrings.PROVIDE_STORAGE_ACCESS);
             }
         }
-    }
-
-    ServiceConnection connection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName className, IBinder service) {
-            DownloadService.LocalBinder binder = (DownloadService.LocalBinder) service;
-            downloadService = binder.getService();
-            bound = true;
-
-            buttonDownload.setEnabled(false);
-            downloadService.downloadFile();
-            getProgress();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName arg0) {
-            bound = false;
-            buttonDownload.setEnabled(true);
-        }
-    };
-
-    public void onClickDownloadButton(View v) {
-        Intent intent = new Intent(this, DownloadService.class);
-        bindService(intent, connection, Context.BIND_AUTO_CREATE);
-        textViewDownloadPercent.setText(Utils.TextViewStrings.REQUESTED);
-    }
-
-    void updateOnUIThread(final int updateIndex, final String text) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                switch (updateIndex) {
-                    case UPDATE_TEXT_VIEW:
-                        textViewDownloadPercent.setText(text);
-                        break;
-                    case UPDATE_BUTTON:
-                        buttonDownload.setEnabled(text.equals(BUTTON_ENABLE));
-                        break;
-                }
-            }
-        });
-    }
-
-    void updateTextBasedOnStatus(int status) {
-        switch (status) {
-            case Utils.DownloadStatuses.COMPLETED:
-                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.COMPLETED+Utils.downloadDirectoryPath);
-                break;
-            case Utils.DownloadStatuses.CONNECTION_FAILED:
-                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.CONNECTION_FAILED);
-                break;
-            case Utils.DownloadStatuses.SD_CARD_NOT_EXISTS:
-                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.SD_CARD_NOT_EXISTS);
-                break;
-            case Utils.DownloadStatuses.OUTPUT_DIR_CREATION_FAILED:
-                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.OUTPUT_DIR_CREATION_FAILED);
-                break;
-            case Utils.DownloadStatuses.OUTPUT_FILE_CREATION_FAILED:
-                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.OUTPUT_FILE_CREATION_FAILED);
-                break;
-            case Utils.DownloadStatuses.FAILED:
-                updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.FAILED);
-                break;
-        }
-    }
-
-    void getProgress() {
-        Thread thread = new Thread(){
-            @Override
-            public void run() {
-                super.run();
-                try {
-                    int downloadStatus;
-                    while ((downloadStatus = downloadService.getDownloadStatus()) <= 0) {
-                        if (downloadStatus == Utils.DownloadStatuses.ONGOING) {
-                            int progressPercent = downloadService.getProgressPercent();
-                            updateOnUIThread(
-                                    UPDATE_TEXT_VIEW,
-                                    String.format("Progress: %s/100", progressPercent)
-                            );
-                        } else if (downloadStatus == Utils.DownloadStatuses.PENDING) {
-                            updateOnUIThread(UPDATE_TEXT_VIEW, Utils.TextViewStrings.PENDING);
-                        }
-                        Thread.sleep(Utils.sleepTime);
-                    }
-
-                    if (bound) {
-                        unbindService(connection);
-                        bound = false;
-                        updateOnUIThread(UPDATE_BUTTON, BUTTON_ENABLE);
-                    }
-
-                    updateTextBasedOnStatus(downloadService.getDownloadStatus());
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-        thread.start();
     }
 }
