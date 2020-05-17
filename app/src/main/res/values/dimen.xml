@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="guidePercent">0.4</dimen>
+    <dimen name="guidePercent">0.3</dimen>
+    <dimen name="layoutPadding">64dp</dimen>
+    <dimen name="progressBarVericalMargin">16dp</dimen>
 </resources>

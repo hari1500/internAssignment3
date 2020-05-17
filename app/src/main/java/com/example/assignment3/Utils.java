@@ -27,8 +27,8 @@ class Utils {
         static final int FAILED                         = 7;
     }
 
-    static class TextViewStrings {
-        static final String REQUESTED                   = "Download Requested";
+    static class TextViewMessages {
+        static final String REQUESTED                   = "Download Requested...";
         static final String PENDING                     = "Download Pending...";
         static final String COMPLETED                   = "Download Completed\n\nFile stored in ";
         static final String CONNECTION_FAILED           = "Connection Failed :(";

@@ -4,28 +4,42 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:padding="@dimen/layoutPadding"
     tools:context=".MainActivity">
 
     <TextView
-        android:id="@+id/textViewDownloadPercent"
+        android:id="@+id/textViewDownloadMessage"
         style="@style/WrapContents"
         android:textAlignment="center"
         android:textAllCaps="false"
+        app:layout_constraintBottom_toBottomOf="@+id/guideline"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toBottomOf="@+id/guideline" />
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <ProgressBar
+        android:id="@+id/progressBarDownloadPercent"
+        style="@android:style/Widget.Material.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginVertical="@dimen/progressBarVericalMargin"
+        android:max="100"
+        android:progress="0"
+        android:visibility="invisible"
+        app:layout_constraintEnd_toEndOf="@+id/textViewDownloadMessage"
+        app:layout_constraintStart_toStartOf="@+id/textViewDownloadMessage"
+        app:layout_constraintTop_toBottomOf="@+id/textViewDownloadMessage" />
 
     <Button
         android:id="@+id/buttonDownload"
-        android:text="@string/download"
+        style="@style/WrapContents"
         android:onClick="onClickDownloadButton"
+        android:text="@string/download"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        style="@style/WrapContents"/>
+        app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline"

@@ -3,6 +3,7 @@ package com.example.assignment3;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.JobIntentService;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
@@ -15,21 +16,24 @@ import android.os.ResultReceiver;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
     private static final int DOWNLOAD_JOB_ID = 5080;
     private static final int PERMISSIONS_REQUEST_CODE = 100;
-    private TextView textViewDownloadPercent;
+    private TextView textViewDownloadMessage;
     private Button buttonDownload;
+    private ProgressBar progressBarDownloadPercent;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        textViewDownloadPercent = findViewById(R.id.textViewDownloadPercent);
         buttonDownload = findViewById(R.id.buttonDownload);
+        textViewDownloadMessage = findViewById(R.id.textViewDownloadMessage);
+        progressBarDownloadPercent = findViewById(R.id.progressBarDownloadPercent);
         checkPermissions();
     }
 
@@ -40,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onClickDownloadButton(View v) {
-        textViewDownloadPercent.setText(Utils.TextViewStrings.REQUESTED);
+        textViewDownloadMessage.setText(Utils.TextViewMessages.REQUESTED);
         buttonDownload.setEnabled(false);
 
         Intent intent = new Intent();
@@ -58,44 +62,50 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        DownloadService.enqueueWork(getApplicationContext(), DownloadService.class, DOWNLOAD_JOB_ID, intent);
+        JobIntentService.enqueueWork(getApplicationContext(), DownloadService.class, DOWNLOAD_JOB_ID, intent);
     }
 
     private void updateUI(int status, int percent) {
         switch (status) {
             case Utils.DownloadStatuses.PENDING:
-                textViewDownloadPercent.setText(Utils.TextViewStrings.PENDING);
+                textViewDownloadMessage.setText(Utils.TextViewMessages.PENDING);
                 break;
             case Utils.DownloadStatuses.ONGOING:
-                textViewDownloadPercent.setText(String.format("Progress: %s/100", percent));
+                textViewDownloadMessage.setText(String.format("Progress: %s/100", percent));
                 break;
             case Utils.DownloadStatuses.COMPLETED:
-                textViewDownloadPercent.setText(Utils.TextViewStrings.COMPLETED.concat(Utils.downloadDirectoryPath));
+                textViewDownloadMessage.setText(Utils.TextViewMessages.COMPLETED.concat(Utils.downloadDirectoryPath));
                 break;
             case Utils.DownloadStatuses.CONNECTION_FAILED:
-                textViewDownloadPercent.setText(Utils.TextViewStrings.CONNECTION_FAILED);
+                textViewDownloadMessage.setText(Utils.TextViewMessages.CONNECTION_FAILED);
                 break;
             case Utils.DownloadStatuses.SD_CARD_NOT_EXISTS:
-                textViewDownloadPercent.setText(Utils.TextViewStrings.SD_CARD_NOT_EXISTS);
+                textViewDownloadMessage.setText(Utils.TextViewMessages.SD_CARD_NOT_EXISTS);
                 break;
             case Utils.DownloadStatuses.OUTPUT_DIR_CREATION_FAILED:
-                textViewDownloadPercent.setText(Utils.TextViewStrings.OUTPUT_DIR_CREATION_FAILED);
+                textViewDownloadMessage.setText(Utils.TextViewMessages.OUTPUT_DIR_CREATION_FAILED);
                 break;
             case Utils.DownloadStatuses.OUTPUT_FILE_CREATION_FAILED:
-                textViewDownloadPercent.setText(Utils.TextViewStrings.OUTPUT_FILE_CREATION_FAILED);
+                textViewDownloadMessage.setText(Utils.TextViewMessages.OUTPUT_FILE_CREATION_FAILED);
                 break;
             case Utils.DownloadStatuses.IMPROPER_URL:
-                textViewDownloadPercent.setText(Utils.TextViewStrings.IMPROPER_URL);
+                textViewDownloadMessage.setText(Utils.TextViewMessages.IMPROPER_URL);
                 break;
             case Utils.DownloadStatuses.FAILED:
-                textViewDownloadPercent.setText(Utils.TextViewStrings.FAILED);
+                textViewDownloadMessage.setText(Utils.TextViewMessages.FAILED);
                 break;
         }
 
         buttonDownload.setEnabled(status >= Utils.DownloadStatuses.COMPLETED);
+        if (status == Utils.DownloadStatuses.ONGOING) {
+            progressBarDownloadPercent.setVisibility(View.VISIBLE);
+            progressBarDownloadPercent.setProgress(percent);
+        } else {
+            progressBarDownloadPercent.setVisibility(View.INVISIBLE);
+        }
     }
 
-    void checkPermissions() {
+    private void checkPermissions() {
         String[] requiredPermissions = new String[]{
                 Manifest.permission.READ_EXTERNAL_STORAGE,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE
@@ -131,7 +141,7 @@ public class MainActivity extends AppCompatActivity {
                 buttonDownload.setEnabled(true);
             } else {
                 buttonDownload.setEnabled(false);
-                textViewDownloadPercent.setText(Utils.TextViewStrings.PROVIDE_STORAGE_ACCESS);
+                textViewDownloadMessage.setText(Utils.TextViewMessages.PROVIDE_STORAGE_ACCESS);
             }
         }
     }
