@@ -1,6 +1,7 @@
 package com.example.assignment3;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.JobIntentService;
@@ -10,6 +11,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ResultReceiver;
@@ -47,7 +49,8 @@ public class MainActivity extends AppCompatActivity {
         textViewDownloadMessage.setText(Utils.TextViewMessages.REQUESTED);
         buttonDownload.setEnabled(false);
 
-        Intent intent = new Intent();
+        Intent intent = new Intent(this, DownloadServiceForeground.class);
+//        Intent intent = new Intent();
         intent.putExtra(Utils.IntentAndBundleKeys.sourceUrlKey, Utils.sourceUrl);
         intent.putExtra(Utils.IntentAndBundleKeys.resultReceiverKey, new ResultReceiver(new Handler()) {
             @Override
@@ -62,7 +65,8 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        DownloadService.enqueueWork(getApplicationContext(), DownloadService.class, DOWNLOAD_JOB_ID, intent);
+//        DownloadService.enqueueWork(getApplicationContext(), DownloadService.class, DOWNLOAD_JOB_ID, intent);
+        ContextCompat.startForegroundService(this, intent);
     }
 
     private void updateUI(int status, int percent) {
