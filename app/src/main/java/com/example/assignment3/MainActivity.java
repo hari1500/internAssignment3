@@ -62,7 +62,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        JobIntentService.enqueueWork(getApplicationContext(), DownloadService.class, DOWNLOAD_JOB_ID, intent);
+        DownloadService.enqueueWork(getApplicationContext(), DownloadService.class, DOWNLOAD_JOB_ID, intent);
     }
 
     private void updateUI(int status, int percent) {

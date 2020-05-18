@@ -103,6 +103,7 @@ public class DownloadService extends JobIntentService {
 
             bundle.putInt(Utils.IntentAndBundleKeys.downloadStatusKey, Utils.DownloadStatuses.COMPLETED);
             resultReceiver.send(Activity.RESULT_OK, bundle);
+            Log.v(Utils.logTag, "Download Completed......");
         } catch (IOException e) {
             e.printStackTrace();
             Log.v(Utils.logTag, e.toString());
