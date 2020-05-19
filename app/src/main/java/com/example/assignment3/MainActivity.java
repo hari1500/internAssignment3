@@ -49,8 +49,8 @@ public class MainActivity extends AppCompatActivity {
         textViewDownloadMessage.setText(Utils.TextViewMessages.REQUESTED);
         buttonDownload.setEnabled(false);
 
-        Intent intent = new Intent(this, DownloadServiceForeground.class);
-//        Intent intent = new Intent();
+//        Intent intent = new Intent(this, DownloadServiceForeground.class);
+        Intent intent = new Intent();
         intent.putExtra(Utils.IntentAndBundleKeys.sourceUrlKey, Utils.sourceUrl);
         intent.putExtra(Utils.IntentAndBundleKeys.resultReceiverKey, new ResultReceiver(new Handler()) {
             @Override
@@ -65,8 +65,8 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-//        DownloadService.enqueueWork(getApplicationContext(), DownloadService.class, DOWNLOAD_JOB_ID, intent);
-        ContextCompat.startForegroundService(this, intent);
+        DownloadService.enqueueWork(getApplicationContext(), DownloadService.class, DOWNLOAD_JOB_ID, intent);
+//        ContextCompat.startForegroundService(this, intent);
     }
 
     private void updateUI(int status, int percent) {
